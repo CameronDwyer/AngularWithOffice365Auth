@@ -1,3 +1,3 @@
-<button *ngIf="this.username==''" id="SignIn" (click)="signIn()">Sign In</button>
-<h4 id="WelcomeMessage">Welcome {{username}}</h4>
+<button *ngIf="!this.currentUser" id="SignIn" (click)="signIn()">Sign In</button>
+<h4 *ngIf="this.currentUser?.displayName" id="WelcomeMessage">Welcome {{this.currentUser.displayName}}</h4>
 <div>AuthMessage: {{this.authMessage}}</div>

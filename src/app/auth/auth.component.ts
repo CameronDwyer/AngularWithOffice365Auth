@@ -13,16 +13,17 @@ import 'rxjs/add/operator/catch';
 })
 export class AuthComponent implements OnInit {
 
-  untypedWindow:any; 
-  username:string = '';
+  untypedWindow:any;
+  authContext: any;//adal.AuthenticationContext;
   authMessage:string = '';
+  currentUser: OpsUser;
 
   constructor(private http: Http) {}
 
   ngOnInit()  {
     console.log("ngOnInit");
     this.untypedWindow = window;
-    this.untypedWindow.ADAL = new this.untypedWindow.AuthenticationContext({
+    this.authContext = new this.untypedWindow.AuthenticationContext({
       instance: 'https://login.microsoftonline.com/',
       tenant: 'common', //COMMON OR YOUR TENANT ID
 
@@ -36,12 +37,12 @@ export class AuthComponent implements OnInit {
   }
 
   signIn() {
-      this.untypedWindow.ADAL.login();
+      this.authContext.login();
   }
 
   userSignedIn(err, token) {
     console.log('userSignedIn called');
-    this.untypedWindow.ADAL.acquireToken(this.untypedWindow.ADAL.config.clientId, this.validateToken.bind(this));
+    this.authContext.acquireToken(this.authContext.config.clientId, this.validateToken.bind(this));
     /*
       console.log('userSignedIn called');
       if (!err) {
@@ -84,11 +85,41 @@ export class AuthComponent implements OnInit {
     .subscribe( res => { this.showClaims(res.text())} );
 }
 
-showClaims(claims)
+mapClaimsToObject(responseBody): AuthTokenClaim[]
 {
-    
+    let claims: AuthTokenClaim[] = <AuthTokenClaim[]> JSON.parse(responseBody);
+    claims.forEach(element => {
+        console.log("type=" + element.type + " ,value=" + element.value + " | ");
+    });
+
+    return claims;
+}
+
+showClaims(claims)
+{  
+    // We've had a successful response from our Web API backend that the token is valid so we can continue and trust the logged in user
     console.log(claims);
     this.authMessage = claims;
+
+    // The user object only gives us the name
+    let user: any = this.authContext.getCachedUser();
+
+    // The claims that were embedded in the verified token give us a lot more
+    let authTokenClaims: AuthTokenClaim[] = this.mapClaimsToObject(claims);
+    let objectIdClaim: AuthTokenClaim = authTokenClaims.find( x => x.type === "http://schemas.microsoft.com/identity/claims/objectidentifier");
+    let tenantIdClaim: AuthTokenClaim = authTokenClaims.find( x => x.type === "http://schemas.microsoft.com/identity/claims/tenantid");
+    let nameClaim: AuthTokenClaim = authTokenClaims.find( x => x.type === "name");
+
+    console.log(objectIdClaim.value);
+    console.log(tenantIdClaim.value);
+    console.log(nameClaim.value);
+
+    this.currentUser = new OpsUser();
+    this.currentUser.displayName = nameClaim.value;
+    this.currentUser.userName = user.userName;
+    this.currentUser.userId = objectIdClaim.value;
+    this.currentUser.tenantId = tenantIdClaim.value;
+
 }
 
 showError(error)
@@ -102,4 +133,17 @@ showError(error)
     this.untypedWindow.ADAL = null;
   }
 
+}
+
+
+export class AuthTokenClaim {
+    type: string;
+    value: string;
+}
+
+export class OpsUser {
+    displayName: string;
+    userName: string;
+    userId: string;
+    tenantId: string;
 }
